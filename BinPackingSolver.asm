@@ -12,7 +12,6 @@
   invalidMessage: .asciiz "No Such Operation!\n"
   invalidFileMsg: .asciiz "Error Opening File.\n"
   fileName: .space 50
-  fileName1: .asciiz "C:\Users\HP\Documents\GitHub\ENCS4370-Computer-Architecture\test.txt"
   successfulOpenFile: .asciiz "File has been successfully open.\n"
   newLine: .asciiz "\n"
   
