@@ -22,6 +22,7 @@ main:
     # Remove newline (optional cleanup)
     # We'll just replace the newline with null terminator if present
     la $t0, filename       # pointer to filename
+    
 clean_loop:
     lb $t1, 0($t0)
     beq $t1, 10, replace_newline  # newline char?
@@ -31,6 +32,7 @@ clean_loop:
 
 replace_newline:
     sb $zero, 0($t0)  # replace newline with null
+    
 end_clean:
 
     # Try opening the file
