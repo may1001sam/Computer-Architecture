@@ -12,8 +12,9 @@
   invalid_option_msg: .asciiz "No Such Option!\n"
   invalid_file_msg: .asciiz "Invalid file name.\n"
   fileName: .space 100
-  success_fileOpen_msg: .asciiz "File uploaded successfully.\n"
+  success_fileOpen_msg: .asciiz "File opened successfully.\n"
   newLine: .asciiz "\n"
+  line_buffer:.space 20
   
 .text
   .globl main
@@ -86,7 +87,9 @@
     li $a1, 0	# open file in read mode
     li $a2, 0	# mode = ignored
     syscall
+    move $s0, $v0
 
+	## Validate file existance and path correctness
     # Check if open failed
     li $t0, -1
     beq $v0, $t0, invalid_file
@@ -96,9 +99,25 @@
     la $a0, success_fileOpen_msg
     syscall
     
+    	## Validate content of the file
+    # start reading lines into buffer
+    fileReader_loop:
+      li $v0, 14		#read lien
+      move $a0, $v0
+      la $a1, line_buffer	#store line in buffer
+      li $a2, 20         # max bytes
+      syscall
+      
+      beq $v0, -1, close_file   # EOF
+    
+      li $v0, 6
+      la $a0, buffer
+      syscall
+      mov.s $f12, $f0	# store parsed float
+
+    
+    
     j close_file
-    # return from function
-    #j loop
   
    # File does not exist 
    invalid_file:
