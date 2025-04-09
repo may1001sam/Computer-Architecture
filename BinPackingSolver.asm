@@ -6,13 +6,13 @@
 
 .data
   # data in memory
-  startMessage: .asciiz "Bin Packing Solver\n\n"
-  menu: .asciiz "Choose an operation:\n 1. Enter file name or path.\n 2. Choose Heuristic: FF or BF.\n 3. exit.\n"
-  promptFileName: .asciiz "Enter file name:\n"
-  invalidMessage: .asciiz "No Such Operation!\n"
-  invalidFileMsg: .asciiz "Error Opening File.\n"
-  fileName: .space 50
-  successfulOpenFile: .asciiz "File has been successfully open.\n"
+  start_msg: .asciiz "Bin Packing Solver\n\n"
+  menu: .asciiz "Choose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
+  prompt_fileName_msg: .asciiz "Enter file name:\n"
+  invalid_option_msg: .asciiz "No Such Option!\n"
+  invalid_file_msg: .asciiz "Invalid file name.\n"
+  fileName: .space 100
+  success_fileOpen_msg: .asciiz "File uploaded successfully.\n"
   newLine: .asciiz "\n"
   
 .text
@@ -21,98 +21,102 @@
   # Main function to run the program
   main:
     li $v0, 4
-    la $a0, startMessage
+    la $a0, start_msg
     syscall
     
-   loop:
-   
-    li $v0, 4
-    la $a0, newLine
-    syscall
+    # loop to keep the program running
+    loop:
+      #li $v0, 4
+      #la $a0, newLine
+      #syscall
     
-    # Display menu
-    li $v0, 4
-    la $a0 menu
-    syscall
+      # Display menu
+      li $v0, 4
+      la $a0 menu
+      syscall
     
-    # read operation
-    li $v0, 5   
-    syscall
-    move $t0, $v0  
+      # read user's option
+      li $v0, 5   
+      syscall
+      move $t0, $v0  
 
-   # Switch-case 
-    beq $t0, 1, readFile
-    beq $t0, 2, FForBF
-    beq $t0, 3, exit
-    j invalidOperation  
+      # service user's option 
+      beq $t0, 1, read_file
+      beq $t0, 2, FForBF
+      beq $t0, 3, quit
+      j invalid_option 
     
-   # Handle invalid operations 
-  invalidOperation:
+  # Handle invalid operations 
+  invalid_option:
     li $v0, 4
-    la $a0, invalidMessage
+    la $a0, invalid_option_msg
     syscall
     j loop  
   
-  
-  # Function to validate input file
-  readFile:
+  # Function to operate reading file option
+  read_file:
     # prompt user to input file name
     li $v0, 4
-    la $a0, promptFileName
+    la $a0, prompt_fileName_msg
     syscall
     
     # read file name from user
     la $a0, fileName
-    li $a1, 10
+    li $a1, 100
     li $v0, 8
     syscall
 
     la $t0, fileName
     
-    clean_loop:
-      lb $t1, 0($t0)
-      beq $t1, 10, replace_newline  # newline char?
-      beqz $t1, end_clean           # end of string?
-      addi $t0, $t0, 1
-      j clean_loop
+    clean_string_loop:
+      lb $t1, 0($t0)	# load char in file name
+      beq $t1, 10, replace_newline	# if char is new line, replace it
+      beqz $t1, string_cleaned	# end of string reached
+      addi $t0, $t0, 1	# move string pointer to the next char
+      j clean_string_loop
 
     replace_newline:
-      sb $zero, 0($t0)  # replace newline with null
+      sb $zero, 0($t0)  # replace newline char with null
     
-    end_clean:
+    string_cleaned:	# File name is clean to be verified
   
     # Try opening the file
-    li $v0, 13         # syscall to open file
+    li $v0, 13
     la $a0, fileName
-    li $a1, 0          # 0 = read mode
-    li $a2, 0          # mode = ignored
+    li $a1, 0	# open file in read mode
+    li $a2, 0	# mode = ignored
     syscall
 
     # Check if open failed
     li $t0, -1
-    beq $v0, $t0, invalidFile
+    beq $v0, $t0, invalid_file
 
     # File opened successfully
     li $v0, 4
-    la $a0, successfulOpenFile
+    la $a0, success_fileOpen_msg
     syscall
     
-    
+    j close_file
     # return from function
-    j loop
+    #j loop
   
- # File does not exist 
- invalidFile:
-   li $v0,4
-   la $a0, invalidFileMsg
-   syscall
+   # File does not exist 
+   invalid_file:
+     li $v0,4
+     la $a0, invalid_file_msg
+     syscall
+     j loop
    
-   j loop
-               
- FForBF:
+   close_file:
+     move $a0, $v0	# file descriptor
+     li $v0, 16
+     syscall
+     j loop
  
-    # Exit the program
- exit:      
+  FForBF:
+ 
+  # Quit the program
+  quit:   
     li $v0, 10
     syscall          
   

@@ -1,8 +1,8 @@
 .data
-prompt:     .asciiz "Enter file name: "
+prompt: .asciiz "Enter file name: "
 exists:     .asciiz "File exists.\n"
 not_exists: .asciiz "File does not exist.\n"
-filename:   .space 100   # buffer to store user input filename
+filename: .space 100   # buffer to store user input filename
 
 .text
 .globl main
@@ -42,6 +42,8 @@ end_clean:
     li $a2, 0          # mode = ignored
     syscall
 
+
+	## Validate file existance and path correctness
     # Check if open failed
     li $t0, -1
     beq $v0, $t0, file_not_found
@@ -51,6 +53,8 @@ end_clean:
     la $a0, exists
     syscall
     j close_file
+    
+    	## Validate content of the file
 
 file_not_found:
     li $v0, 4
@@ -65,5 +69,5 @@ close_file:
     syscall
 
 done:
-    li $v0, 10
+    li $v0, 10 #exit program
     syscall
