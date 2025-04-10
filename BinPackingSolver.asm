@@ -6,15 +6,15 @@
 
 .data
   # data in memory
-  start_msg: .asciiz "Bin Packing Solver\n\n"
-  menu: .asciiz "Choose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
+  start_msg: .asciiz "----- Bin Packing Solver\n -----"
+  menu: .asciiz "\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
   prompt_fileName_msg: .asciiz "Enter file name:\n"
   invalid_option_msg: .asciiz "No Such Option!\n"
   invalid_file_msg: .asciiz "Invalid file name.\n"
   fileName: .space 100
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
   newLine: .asciiz "\n"
-  line_buffer:.space 20
+  line_buffer:.space 50
   
 .text
   .globl main
@@ -27,10 +27,6 @@
     
     # loop to keep the program running
     loop:
-      #li $v0, 4
-      #la $a0, newLine
-      #syscall
-    
       # Display menu
       li $v0, 4
       la $a0 menu
@@ -91,8 +87,7 @@
 
 	## Validate file existance and path correctness
     # Check if open failed
-    li $t0, -1
-    beq $v0, $t0, invalid_file
+    bltz $v0, invalid_file
 
     # File opened successfully
     li $v0, 4
@@ -102,22 +97,29 @@
     	## Validate content of the file
     # start reading lines into buffer
     fileReader_loop:
-      li $v0, 14		#read lien
-      move $a0, $v0
+      li $v0, 14		#read line
+      move $a0, $s0
       la $a1, line_buffer	#store line in buffer
-      li $a2, 20         # max bytes
+      li $a2, 50         # max buffer size
       syscall
       
-      beq $v0, -1, close_file   # EOF
-    
-      li $v0, 6
-      la $a0, buffer
+      blez $v0, close_file   # EOF reached
+      
+      li $v0, 4               # syscall: print string
+      la $a0, line_buffer
       syscall
-      mov.s $f12, $f0	# store parsed float
 
+      # Optional: Print a newline (for clean output)
+      li $v0, 4
+      la $a0, newLine
+      syscall
+
+      j fileReader_loop
     
     
-    j close_file
+   # Convert string to float
+   string_to_float:
+   
   
    # File does not exist 
    invalid_file:
@@ -127,7 +129,7 @@
      j loop
    
    close_file:
-     move $a0, $v0	# file descriptor
+     move $a0, $s0	# file descriptor
      li $v0, 16
      syscall
      j loop
@@ -135,7 +137,7 @@
   FForBF:
  
   # Quit the program
-  quit:   
+  quit:
     li $v0, 10
     syscall          
   

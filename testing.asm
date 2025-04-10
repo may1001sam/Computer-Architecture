@@ -3,6 +3,10 @@ prompt: .asciiz "Enter file name: "
 exists:     .asciiz "File exists.\n"
 not_exists: .asciiz "File does not exist.\n"
 filename: .space 100   # buffer to store user input filename
+line_buffer: .space 50
+newLine: .asciiz "\n"
+valid_msg: .asciiz "File is valid\n"
+invalid_msg: .asciiz "File is invalid\n"
 
 .text
 .globl main
@@ -41,6 +45,7 @@ end_clean:
     li $a1, 0          # 0 = read mode
     li $a2, 0          # mode = ignored
     syscall
+    move $s0, $v0
 
 
 	## Validate file existance and path correctness
@@ -55,31 +60,26 @@ end_clean:
     j close_file
     
     	## Validate content of the file
-    	
-read_loop:
-    # --- Read line from file ---
-    li $v0, 14
-    move $a0, $s0       # file descriptor
-    la $a1, buffer      # where to store line
-    li $a2, 32          # max bytes
-    syscall
-    beq $v0, -1, exit   # if EOF, exit
+    # start reading lines into buffer
+    fileReader_loop:
+      li $v0, 14		#read line
+      move $a0, $s0
+      la $a1, line_buffer	#store line in buffer
+      li $a2, 50         # max buffer size
+      syscall
+      
+      bltz $v0, close_file   # EOF reached
+      
+      li $v0, 4               # syscall: print string
+      la $a0, line_buffer
+      syscall
 
-    # --- Try reading a float from the buffer ---
-    la $a0, buffer
-    li $v0, 6           # syscall: read float
-    syscall
-    mov.s $f12, $f0     # move result to $f12
+      # Optional: Print a newline (for clean output)
+      li $v0, 4
+      la $a0, newLine
+      syscall
 
-    # --- Check if float > 0 ---
-    li.s $f1, 0.0
-    c.le.s $f12, $f1    # if $f12 <= 0 → invalid
-    bc1t print_invalid
-
-    # --- Check if float < 1 ---
-    li.s $f2, 1.0
-    c.lt.s $f12, $f2    # if $f12 < 1 → valid
-    bc1t print_valid
+      j fileReader_loop
 
 print_invalid:
     li $v0, 4
@@ -105,7 +105,7 @@ file_not_found:
 
 close_file:
     # Close the file
-    move $a0, $v0      # file descriptor
+    move $a0, $s0      # file descriptor
     li $v0, 16         # syscall to close
     syscall
 
