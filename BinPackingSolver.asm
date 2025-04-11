@@ -105,22 +105,38 @@
       
       blez $v0, close_file   # EOF reached
       
-      li $v0, 4               # syscall: print string
+      li $v0, 4
       la $a0, line_buffer
       syscall
-
-      # Optional: Print a newline (for clean output)
+      
       li $v0, 4
       la $a0, newLine
       syscall
-
+      
+      # validate data in buffer
+      la $a0, line_buffer
+      jal string_to_float
+      
       j fileReader_loop
     
     
    # Convert string to float
    string_to_float:
-   
-  
+     li $v0, 6	# read float in buffer
+     syscall
+     mov.s $f12, $f0
+     
+     #check float boundaries
+     li.s $f1, 0.0
+     c.lt.s $f12, $f1
+     bc1t invalid_file
+     
+     li $f1, 1.0
+     c.le.s $f1, $f12
+     bc1t invalid_file
+     
+     jr $ra
+
    # File does not exist 
    invalid_file:
      li $v0,4
@@ -139,5 +155,5 @@
   # Quit the program
   quit:
     li $v0, 10
-    syscall          
+    syscall    
   
