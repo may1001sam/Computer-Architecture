@@ -1,10 +1,10 @@
 .data
   start_msg: .asciiz "----- Bin Packing Solver\n -----"
-  menu: .asciiz "\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
-  prompt_fileName_msg: .asciiz "Enter file name:\n"
-  invalid_option_msg: .asciiz "No Such Option!\n"
-  invalid_file_msg: .asciiz "Invalid file name.\n"
-  invalid_input_msg: .asciiz "Invalid file input.\n"
+  menu: .asciiz "\n\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
+  prompt_fileName_msg: .asciiz "\nEnter file name:\n"
+  invalid_option_msg: .asciiz "\nNo Such Option!\n"
+  invalid_file_msg: .asciiz "\nInvalid file name.\n"
+  invalid_input_msg: .asciiz "\nInvalid file input.\n"
   fileName: .space 100
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
   newLine: .asciiz "\n"
@@ -28,13 +28,20 @@ loop:
   la $a0, menu
   syscall
 
-  li $v0, 5
-  syscall
-  move $t0, $v0
+ li $v0, 12       # syscall for reading a character
+syscall
+move $t0, $v0    # store the character in $t0
 
-  beq $t0, 1, read_file
-  beq $t0, 2, FForBF
-  beq $t0, 3, quit
+
+
+beq $t0, '1', read_file
+beq $t0, '2', FForBF
+beq $t0, 'q', quit
+beq $t0, 'Q', quit
+
+
+  
+
   j invalid_option
 
 invalid_option:
