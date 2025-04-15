@@ -20,7 +20,7 @@
   
   # variables to use
   fileName: .space 100
-  algorithm: .space 10
+  algorithm: .space 3
   
   # buffer for reading lines in file
   line_buffer: .space 100
@@ -211,7 +211,7 @@ finish:
   
   # item is valid
   # add to the array of valid items
-  #jal add_item_to_array
+  jal add_item_to_array
 
   jr $ra
 
@@ -241,7 +241,7 @@ FForBF:
 
   # read choice of algorithm
   la $a0, algorithm
-  li $a1, 10 # two bytes size
+  li $a1, 3 # two-characters sized input
   li $v0, 8
   syscall
   
@@ -261,8 +261,9 @@ first_fit:
   #### Queen Raghad <3
 	# ...
   li $v0, 4
-  la $a0, ff_msg
+  la $a0, ff_msg # debugging
   syscall
+  
   j loop
 
 ## Function to run Best-Fit algorithm
