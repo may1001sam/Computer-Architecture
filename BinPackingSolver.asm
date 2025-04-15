@@ -1,80 +1,99 @@
+# Title: Bin Packing Solver
+# Authors:
+#	Raghad Jamhour - 122
+#	Maysam Habbash - 1220075
+
+################################## DATA SECTION ###########################################
 .data
-  start_msg: .asciiz "----- Bin Packing Solver\n -----"
+  # messages to print
+  start_msg: .asciiz "----- Bin Packing Solver -----\n"
   menu: .asciiz "\n\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
   prompt_fileName_msg: .asciiz "\nEnter file name:\n"
   invalid_option_msg: .asciiz "\nNo Such Option!\n"
   invalid_file_msg: .asciiz "\nInvalid file name.\n"
   invalid_input_msg: .asciiz "\nInvalid file input.\n"
-  fileName: .space 100
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
   newLine: .asciiz "\n"
+  
+  # variables to use
+  fileName: .space 100
+  
+  # buffer for reading lines in file
   line_buffer: .space 100
   word_buffer: .space 50
+  
+  # float comparison data
   zero_float: .float 0.0
   one_float: .float 1.0
+  # float conversion data
   ten: .float 10.0
   one: .float 1.0
-  # Arrays for data
-  items: .space 100
-  bins: .space 100
+  
+  # arrays for storing items and bins
+  items_array: .space 100
+  bins_array: .space 100
 
+################################## CODE SECTION ###########################################
 .text
   .globl main
-
+# Main loop to run the program
 main:
   li $v0, 4
   la $a0, start_msg
   syscall
 
-loop:
-  li $v0, 4
-  la $a0, menu
-  syscall
+  loop:
+    # print menu until user quits the program
+    li $v0, 4
+    la $a0, menu
+    syscall
 
- li $v0, 12       # syscall for reading a character
-syscall
-move $t0, $v0    # store the character in $t0
+    # read user's option (as a character)
+    li $v0, 12
+    syscall
+    move $t0, $v0
 
+    # switch between user options
+    beq $t0, '1', read_file
+    beq $t0, '2', FForBF
+    beq $t0, 'q', quit
+    beq $t0, 'Q', quit
+    j invalid_option	# handle invalid options
 
-
-beq $t0, '1', read_file
-beq $t0, '2', FForBF
-beq $t0, 'q', quit
-beq $t0, 'Q', quit
-
-
-  
-
-  j invalid_option
-
+# Function to notify user of invalid option
 invalid_option:
   li $v0, 4
   la $a0, invalid_option_msg
   syscall
   j loop
 
+# Function to handle data upload from file
 read_file:
   li $v0, 4
   la $a0, prompt_fileName_msg
   syscall
 
+  # read file name
   la $a0, fileName
   li $a1, 100
   li $v0, 8
   syscall
 
   la $t0, fileName
-clean_string_loop:
-  lb $t1, 0($t0)
-  beq $t1, 10, replace_newline
-  beqz $t1, string_cleaned
-  addi $t0, $t0, 1
-  j clean_string_loop
+  clean_string_loop:
+    lb $t1, 0($t0)	# take one char to examine
+    beq $t1, 10, replace_newline	# check if char is new line
+    beqz $t1, string_cleaned	# check if char is null termination
+    
+    addi $t0, $t0, 1	# move to the next char in string
+    j clean_string_loop
 
-replace_newline:
-  sb $zero, 0($t0)
+  replace_newline:
+    sb $zero, 0($t0)
 
-string_cleaned:
+  string_cleaned:	# end of string reached
+  
+  # open file for upload
   li $v0, 13
   la $a0, fileName
   li $a1, 0
@@ -82,6 +101,7 @@ string_cleaned:
   syscall
   move $s0, $v0
 
+  # make sure file is opened
   bltz $v0, invalid_file
 
   li $v0, 4
@@ -179,7 +199,7 @@ finish:
   cvt.s.w $f1, $f1
   add.s $f12, $f1, $f2
   
-  li $v0, 2      # syscall for print_float
+  li $v0, 2
   syscall
   
   la $t7, zero_float
@@ -193,31 +213,34 @@ finish:
   bc1t invalid_input
   
   # add item to the array of items
-  li $a0, $f12
-  jal add_to_array
+  #li $a0, $f12
+  #jal add_item_to_array
 
   jr $ra
-  
-add_to_array:
-  la $t5, items
-  li $f12,$a0
+
+# Function to add valid items into array
+add_item_to_array:
+  la $t5, items_array
+  #li $f12,$a0
   s.s $f12, 0($t5)     # store float in array at address in $t0
   addi $t5, $t5, 4 
   
   
-
+# Function to notify user if invalid file paths
 invalid_file:
   li $v0, 4
   la $a0, invalid_file_msg
   syscall
   j loop
 
+# Function to notify user of invalid input in file
 invalid_input:
   li $v0, 4
   la $a0, invalid_input_msg
   syscall
   j loop
 
+# Function to close the file after upload
 close_file:
   move $a0, $s0
   li $v0, 16
