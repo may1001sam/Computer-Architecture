@@ -10,14 +10,17 @@
   menu: .asciiz "\n\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
   prompt_fileName_msg: .asciiz "\nEnter file name:\n"
   invalid_option_msg: .asciiz "\nNo Such Option!\n"
-  invalid_file_msg: .asciiz "\nInvalid file name.\n"
-  invalid_input_msg: .asciiz "\nInvalid file input.\n"
+  invalid_file_msg: .asciiz "\nInvalid file name!\n"
+  invalid_input_msg: .asciiz "\nInvalid file input!\n"
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
   FForBF_msg: .asciiz "\nEnter 'FF' for First-Fit or 'BF' for Best Fit:\n"
+  invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
+  ff_msg: .asciiz "\nFF chosen\n"
   newLine: .asciiz "\n"
   
   # variables to use
   fileName: .space 100
+  algorithm: .space 10
   
   # buffer for reading lines in file
   line_buffer: .space 100
@@ -229,19 +232,43 @@ add_item_to_array:
   sw $t9, 0($t4)
   
   jr $ra
-  
-## Function to notify user if invalid file paths
-invalid_file:
+
+## Function to specify First-Fit or Best-Fit algorithm
+FForBF:
   li $v0, 4
-  la $a0, invalid_file_msg
+  la $a0, FForBF_msg
+  syscall
+
+  # read choice of algorithm
+  la $a0, algorithm
+  li $a1, 10 # two bytes size
+  li $v0, 8
+  syscall
+  
+  la $s1, algorithm
+  jal remove_newline
+  
+  lb $s2, algorithm
+  # switch between algorithms
+  beq $s2, 'F', first_fit
+  beq $s2, 'f', first_fit
+  beq $s2, 'B', best_fit
+  beq $s2, 'b', best_fit
+  j invalid_algorithm
+
+## Function to run First-Fit algorithm
+first_fit:
+  #### Queen Raghad <3
+	# ...
+  li $v0, 4
+  la $a0, ff_msg
   syscall
   j loop
 
-## Function to notify user of invalid input in file
-invalid_input:
-  li $v0, 4
-  la $a0, invalid_input_msg
-  syscall
+## Function to run Best-Fit algorithm
+best_fit:
+  #### Queen Maysam <3
+	# ...
   j loop
 
 ## Function to remove newline from string
@@ -259,6 +286,27 @@ remove_newline:
 
   string_cleaned: # end of string reached
   jr $ra
+  
+## Function to notify user if invalid file paths
+invalid_file:
+  li $v0, 4
+  la $a0, invalid_file_msg
+  syscall
+  j loop
+
+## Function to notify user of invalid input in file
+invalid_input:
+  li $v0, 4
+  la $a0, invalid_input_msg
+  syscall
+  j loop
+
+## Function to notify user of invalid algorihtm
+invalid_algorithm:
+  li $v0, 4
+  la $a0, invalid_algo_msg
+  syscall
+  j loop
 
 ## Function to close the file after upload
 close_file:
@@ -266,22 +314,6 @@ close_file:
   li $v0, 16
   syscall
   j loop
-
-## Function to specify First-Fit or Best-Fit algorithm
-FForBF:
-  li $v0, 4
-  la $a0, FForBF_msg
-  syscall
-
-  j loop
-
-## Function to run First-Fit algorithm
-first_fit:
-
-
-## Function to run Best-Fit algorithm
-best_fit:
-
 
 quit:
   li $v0, 10
