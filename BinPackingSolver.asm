@@ -83,19 +83,9 @@ read_file:
   li $v0, 8
   syscall
 
-  la $t0, fileName
-  clean_string_loop:
-    lb $t1, 0($t0)	# take one char to examine
-    beq $t1, 10, replace_newline	# check if char is new line
-    beqz $t1, string_cleaned	# check if char is null termination
-    
-    addi $t0, $t0, 1	# move to the next char in string
-    j clean_string_loop
-
-  replace_newline:
-    sb $zero, 0($t0)
-
-  string_cleaned:	# end of string reached
+  # clean input
+  la $s1, fileName
+  jal remove_newline
   
   # open file for upload
   li $v0, 13
@@ -105,7 +95,7 @@ read_file:
   syscall
   move $s0, $v0
 
-  # make sure file is opened
+  # make sure file could be open
   bltz $v0, invalid_file
 
   li $v0, 4
@@ -218,7 +208,7 @@ finish:
   
   # item is valid
   # add to the array of valid items
-  jal add_item_to_array
+  #jal add_item_to_array
 
   jr $ra
 
@@ -253,6 +243,22 @@ invalid_input:
   la $a0, invalid_input_msg
   syscall
   j loop
+
+## Function to remove newline from string
+remove_newline:
+  clean_string_loop:
+    lb $t1, 0($s1) # take one char to examine
+    beq $t1, 10, replace_newline # check if char is new line
+    beqz $t1, string_cleaned # check if char is null termination
+    
+    addi $s1, $s1, 1 # move to the next char in string
+    j clean_string_loop
+
+  replace_newline:
+    sb $zero, 0($s1)
+
+  string_cleaned: # end of string reached
+  jr $ra
 
 ## Function to close the file after upload
 close_file:
