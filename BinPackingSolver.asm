@@ -13,6 +13,7 @@
   invalid_file_msg: .asciiz "\nInvalid file name.\n"
   invalid_input_msg: .asciiz "\nInvalid file input.\n"
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
+  FForBF_msg: .asciiz "\nEnter 'FF' for First-Fit or 'BF' for Best Fit:\n"
   newLine: .asciiz "\n"
   
   # variables to use
@@ -31,17 +32,20 @@
   
   # arrays for storing items and bins
   items_array: .space 100
+  items_free_index: .word 0
   bins_array: .space 100
+  bins_free_index: .word 0
 
 ################################## CODE SECTION ###########################################
 .text
   .globl main
-# Main loop to run the program
+  
+## Main Function to run the program
 main:
   li $v0, 4
   la $a0, start_msg
   syscall
-
+  
   loop:
     # print menu until user quits the program
     li $v0, 4
@@ -60,14 +64,14 @@ main:
     beq $t0, 'Q', quit
     j invalid_option	# handle invalid options
 
-# Function to notify user of invalid option
+## Function to notify user of invalid option
 invalid_option:
   li $v0, 4
   la $a0, invalid_option_msg
   syscall
   j loop
 
-# Function to handle data upload from file
+## Function to handle data upload from file
 read_file:
   li $v0, 4
   la $a0, prompt_fileName_msg
@@ -212,43 +216,66 @@ finish:
   c.le.s $f1, $f12
   bc1t invalid_input
   
-  # add item to the array of items
-  #li $a0, $f12
-  #jal add_item_to_array
+  # item is valid
+  # add to the array of valid items
+  jal add_item_to_array
 
   jr $ra
 
-# Function to add valid items into array
+## Function to add valid items into array
 add_item_to_array:
-  la $t5, items_array
-  #li $f12,$a0
-  s.s $f12, 0($t5)     # store float in array at address in $t0
-  addi $t5, $t5, 4 
+  # get address of next available cell in array (index)
+  la $t8, items_array
+  la $t4, items_free_index
+  lw $t9, 0($t4)	# t4 is now address of free index
   
+  mul $t9, $t9, 4 #move forward 4 bytes for single precision floats
+  add $t8, $t8, $t9 # actual address
+  s.s $f12, 0($t8)
   
-# Function to notify user if invalid file paths
+  # update free index
+  lw $t9, 0($t4)	# reload index
+  addi $t9, $t9, 1 # increment
+  sw $t9, 0($t4)
+  
+  jr $ra
+  
+## Function to notify user if invalid file paths
 invalid_file:
   li $v0, 4
   la $a0, invalid_file_msg
   syscall
   j loop
 
-# Function to notify user of invalid input in file
+## Function to notify user of invalid input in file
 invalid_input:
   li $v0, 4
   la $a0, invalid_input_msg
   syscall
   j loop
 
-# Function to close the file after upload
+## Function to close the file after upload
 close_file:
   move $a0, $s0
   li $v0, 16
   syscall
   j loop
 
+## Function to specify First-Fit or Best-Fit algorithm
 FForBF:
+  li $v0, 4
+  la $a0, FForBF_msg
+  syscall
+
   j loop
+
+## Function to run First-Fit algorithm
+first_fit:
+
+
+## Function to run Best-Fit algorithm
+best_fit:
+
 
 quit:
   li $v0, 10
