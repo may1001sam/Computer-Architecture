@@ -14,6 +14,9 @@
   one_float: .float 1.0
   ten: .float 10.0
   one: .float 1.0
+  # Arrays for data
+  items: .space 100
+  bins: .space 100
 
 .text
   .globl main
@@ -188,8 +191,20 @@ finish:
   l.s $f1, 0($t7)
   c.le.s $f1, $f12
   bc1t invalid_input
+  
+  # add item to the array of items
+  li $a0, $f12
+  jal add_to_array
 
   jr $ra
+  
+add_to_array:
+  la $t5, items
+  li $f12,$a0
+  s.s $f12, 0($t5)     # store float in array at address in $t0
+  addi $t5, $t5, 4 
+  
+  
 
 invalid_file:
   li $v0, 4
