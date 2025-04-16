@@ -50,6 +50,15 @@ main:
   syscall
   
   loop:
+  
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    jal print_float_array #print the item array
+  
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+
     # print menu until user quits the program
     li $v0, 4
     la $a0, menu
@@ -207,17 +216,18 @@ finish:
   c.le.s $f1, $f12
   bc1t invalid_input
   
-  li $v0 , 2
-  syscall
+ # li $v0 , 2
+ # syscall
   
   # Save return address before calling
   addi $sp, $sp, -4
   sw $ra, 0($sp)
   # item is valid
+  
   # add to the array of valid items
   jal add_item_to_array
   
-    # Restore return address
+  # Restore return address
   lw $ra, 0($sp)
   addi $sp, $sp, 4
 
@@ -239,10 +249,40 @@ add_item_to_array:
   addi $t9, $t9, 1 # increment
   sw $t9, 0($t4)
   
-  li $v0, 2          # syscall code for print float
-  syscall
+  # li $v0, 2          # syscall code for print float
+  #syscall
   
   jr $ra
+  
+  
+# Function to print an array of floating-point numbers
+print_float_array:
+    # Load the base address of the array (starting address of the array)
+    la $t5, items_array       # $t0 = base address of the array
+    la $t6, items_free_index  # $t1 = address of the index tracker
+    lw $t7, 0($t6)            # $t2 = number of elements in the array
+
+    # Loop to print each element in the array
+    loop_print:
+        # Check if we have printed all elements
+        beq $t7, $zero, done_printing
+
+        # Load the current element from the array into $f12 (for printing)
+        l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
+
+        # Print the floating-point number
+        li $v0, 2              # syscall code for print float
+        syscall
+
+        # Move to the next element in the array (increment by 4 bytes for single precision float)
+        addi $t5, $t5, 4       # Increment address of the next float in the array
+        sub $t7, $t7, 1        # Decrement the counter of remaining elements
+
+        j loop_print           # Continue the loop
+
+    done_printing:
+        jr $ra                 # Return from function
+  
 
 ## Function to specify First-Fit or Best-Fit algorithm
 FForBF:
