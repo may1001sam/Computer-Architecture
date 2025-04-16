@@ -196,8 +196,6 @@ finish:
   cvt.s.w $f1, $f1
   add.s $f12, $f1, $f2
   
-  li $v0, 2
-  syscall
   
   la $t7, zero_float
   l.s $f1, 0($t7)
@@ -209,9 +207,19 @@ finish:
   c.le.s $f1, $f12
   bc1t invalid_input
   
+  li $v0 , 2
+  syscall
+  
+  # Save return address before calling
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
   # item is valid
   # add to the array of valid items
   jal add_item_to_array
+  
+    # Restore return address
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
 
   jr $ra
 
@@ -230,6 +238,9 @@ add_item_to_array:
   lw $t9, 0($t4)	# reload index
   addi $t9, $t9, 1 # increment
   sw $t9, 0($t4)
+  
+  li $v0, 2          # syscall code for print float
+  syscall
   
   jr $ra
 
