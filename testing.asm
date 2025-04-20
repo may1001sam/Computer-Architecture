@@ -16,8 +16,9 @@
   FForBF_msg: .asciiz "\nEnter 'FF' for First-Fit or 'BF' for Best Fit:\n"
   invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
   ff_msg: .asciiz "\nFF chosen\n"
-  empty_msg: .asciiz "Array is empty!\n"
+  empty_msg: .asciiz "\nArray is empty!\n"
   newLine: .asciiz "\n"
+  space:  .asciiz " "
   
   # variables to use
   fileName: .space 100
@@ -38,14 +39,11 @@
   items_array: .space 100
   items_free_index: .word 0
   bins_array: .space 100
-  bins_free_index: .word 0
   bins_count: .word 25
-  available_bins: .space 100
-  available_index: .word 0
 
 ################################## CODE SECTION ###########################################
 .text
-  .globl main
+.globl main
   
 ## Main Function to run the program
 main:
@@ -249,7 +247,6 @@ add_item_to_array:
   
   jr $ra
   
-  
 # Function to print an array of floating-point numbers
 print_float_array:
     # Load the base address of the array (starting address of the array)
@@ -306,35 +303,68 @@ FForBF:
 first_fit:
   #### Queen Raghad <3
 	# ...
-  li $v0, 4
-  la $a0, ff_msg # debugging
-  syscall
-  
   j loop
 
+############################################################################################################
+############################################################################################################
 ## Function to run Best-Fit algorithm
 best_fit:
+  # initilaize bins to capacity of 1
+  jal initialize_bins
+  
   la $t0, items_array
   la $t1, items_free_index
   lw $t2, 0($t1)# t2 = number of items in array
 
   beq $t2, $zero, empty_array # make sure array is not empty
   
+  la $t5, bins_array
+  la $t6, bins_count
+  lw $t7, 0($t6)
   # iterate through items to put in bins
   items_loop:
-    beq $t2, $zero, stop # all items gone through
-    l.s $f12, 0($t0) # current item in f12
+    beq $t2, $zero, stop_items_loop # all items gone through
+    l.s $f0, 0($t0) # current item in f12
     
-    # extract available bins
+    la $t3, one_float
+    l.s $f1, 0($t3) # f1 is min_capacity
+    move $t4, $zero # t4 is min_index
+    
+    move $t8, $zero # t8 is current index in bins array
+    # choose the best fit bin
     bins_loop:
+      beq $t7, $zero, stop_bins_loop
+      l.s $f2, 0($t5) # current bin in f2
       
+      c.lt.s $f2, $f0
+      bc1t continue # item does not fit
+      # items fits in bin
+      c.le.s $f1, $f2 # bin_capacity < min_capacity
+      bc1t skip
+      mov.s $f1, $f2 # new min_capacity
+      move $4, $t8 # new min_index
+      
+      skip:
+      continue:
+      addi $t5, $t5, 4 # move to the next bin
+      addi $t8, $t8, 1 # update index
+      sub $t7, $t7, 1 # remaining bins
+      j bins_loop
+    
+    stop_bins_loop:
+    # put item in best fitted bin
+    la $t9, bins_array # reload address
+    mul $t8, $t8, 4
+    add $t9, $t9, $t8 # address of best-fit bin
+    sub.s $f3, $f1,$f0 # place item in bin
+    s.s $f3, 0($t9)
     
     addi $t0, $t0, 4 # move to the next item
     sub $t2, $t2, 1 # remaining items
-    
     j items_loop
 
-  stop:
+  stop_items_loop: # all items are placed into bins
+  jal print_bins_array
   j loop
 
 ## Function to initialize bins to capacity of 1
@@ -361,6 +391,40 @@ initialize_bins:
   stop_init:
   jr $ra
 
+print_bins_array:
+	li $v0, 4
+        la $a0, newLine
+        syscall
+    # Load the base address of the array (starting address of the array)
+    la $t5, bins_array       # $t0 = base address of the array
+    la $t6, bins_count  # $t1 = address of the index tracker
+    lw $t7, 0($t6)            # $t2 = number of elements in the array
+
+    # Loop to print each element in the array
+    loop_print_bins:
+        # Check if we have printed all elements
+        beq $t7, $zero, done_printing_bins
+
+        # Load the current element from the array into $f12 (for printing)
+        l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
+
+        # Print the floating-point number
+        li $v0, 2              # syscall code for print float
+        syscall
+
+        li $v0, 4
+        la $a0, space
+        syscall
+        
+        # Move to the next element in the array (increment by 4 bytes for single precision float)
+        addi $t5, $t5, 4       # Increment address of the next float in the array
+        sub $t7, $t7, 1        # Decrement the counter of remaining elements
+
+        j loop_print_bins          # Continue the loop
+
+    done_printing_bins:
+        jr $ra                 # Return from function
+  
 ## Function to notify user of empty arrays
 empty_array:
   li $v0, 4
