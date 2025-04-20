@@ -19,6 +19,7 @@
   empty_msg: .asciiz "\nArray is empty!\n"
   item: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
+  min: .asciiz ", new minimum "
   newLine: .asciiz "\n"
   space:  .asciiz " "
   
@@ -33,6 +34,7 @@
   # float comparison data
   zero_float: .float 0.0
   one_float: .float 1.0
+  two_float: .float 2.0
   # float conversion data
   ten: .float 10.0
   one: .float 1.0
@@ -320,13 +322,10 @@ best_fit:
   
   la $t0, items_array
   la $t1, items_free_index
-  lw $t2, 0($t1)# t2 = number of items in array
+  lw $t2, 0($t1) # t2 = number of items in array
 
   beq $t2, $zero, empty_array # make sure array is not empty
   
-  la $t5, bins_array
-  la $t6, bins_count
-  lw $t7, 0($t6)
   # iterate through items to put in bins
   items_loop:
     beq $t2, $zero, stop_items_loop # all items gone through
@@ -342,26 +341,33 @@ best_fit:
     la $t3, one_float
     l.s $f1, 0($t3) # f1 is min_capacity
     move $t4, $zero # t4 is min_index
-    
     move $t8, $zero # t8 is current index in bins array
+    
+    la $t5, bins_array
+    la $t6, bins_count
+    lw $t7, 0($t6)
     # choose the best fit bin
     bins_loop:
-      beq $t7, $zero, stop_bins_loop
+      ble $t7, $zero, stop_bins_loop
       l.s $f2, 0($t5) # current bin in f2
       
       c.lt.s $f2, $f0
-      bc1t continue # item does not fit
+      bc1t continue # item does not fit in bin
       # items fits in bin
-      c.le.s $f1, $f2 # bin_capacity < min_capacity
+      c.le.s $f1, $f2
       bc1t skip
       mov.s $f1, $f2 # new min_capacity
-      move $4, $t8 # new min_index
+      move $t4, $t8 # new min_index
       
-      skip:
+      li $v0, 4
+      la $a0, min
+      syscall
+      
       continue:
+      skip:
       addi $t5, $t5, 4 # move to the next bin
       addi $t8, $t8, 1 # update index
-      sub $t7, $t7, 1 # remaining bins
+      subi $t7, $t7, 1 # remaining bins
       j bins_loop
     
     stop_bins_loop:
@@ -369,24 +375,34 @@ best_fit:
     li $v0, 4
     la $a0, bin
     syscall
-    move $a0, $t8
+    move $a0, $t4
     li $v0, 1
     syscall
     
     
     # put item in best fitted bin
     la $t5, bins_array # reload address
-    mul $t8, $t8, 4
-    add $t5, $t5, $t8 # address of best-fit bin
-    sub.s $f3, $f1,$f0 # place item in bin
+    mul $t4, $t4, 4
+    add $t5, $t5, $t4 # address of best-fit bin
+    sub.s $f3, $f1, $f0 # place item in bin
     s.s $f3, 0($t5) # update bin capacity
     
     addi $t0, $t0, 4 # move to the next item
-    sub $t2, $t2, 1 # remaining items
+    subi $t2, $t2, 1 # remaining items
     
+    
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    jal print_bins_array #print the item array
+  
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+
     li $v0, 4
     la $a0, newLine
     syscall
+    
     j items_loop
 
   stop_items_loop: # all items are placed into bins
@@ -400,7 +416,6 @@ initialize_bins:
   lw $t5, 0($t1)
   l.s $f0, one_float
   
-  # iterate through items to put in bins
   bins_init_loop:
     ble $t5, $zero, stop_init
     s.s $f0, 0($t0)
