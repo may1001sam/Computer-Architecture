@@ -17,6 +17,8 @@
   invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
   ff_msg: .asciiz "\nFF chosen\n"
   empty_msg: .asciiz "\nArray is empty!\n"
+  item: .asciiz "\nitem: "
+  bin: .asciiz ", bin: "
   newLine: .asciiz "\n"
   space:  .asciiz " "
   
@@ -269,7 +271,11 @@ print_float_array:
         # Move to the next element in the array (increment by 4 bytes for single precision float)
         addi $t5, $t5, 4       # Increment address of the next float in the array
         sub $t7, $t7, 1        # Decrement the counter of remaining elements
-
+        
+        li $v0, 4
+        la $a0, space
+        syscall
+        
         j loop_print           # Continue the loop
 
     done_printing:
@@ -309,7 +315,7 @@ first_fit:
 ############################################################################################################
 ## Function to run Best-Fit algorithm
 best_fit:
-  # initilaize bins to capacity of 1
+  # initialize bins to capacity of 1
   jal initialize_bins
   
   la $t0, items_array
@@ -324,7 +330,14 @@ best_fit:
   # iterate through items to put in bins
   items_loop:
     beq $t2, $zero, stop_items_loop # all items gone through
-    l.s $f0, 0($t0) # current item in f12
+    l.s $f0, 0($t0) # current item in f0
+    
+    li $v0, 4
+    la $a0, item
+    syscall
+    mov.s $f12, $f0
+    li $v0, 2
+    syscall
     
     la $t3, one_float
     l.s $f1, 0($t3) # f1 is min_capacity
@@ -352,40 +365,47 @@ best_fit:
       j bins_loop
     
     stop_bins_loop:
+    
+    li $v0, 4
+    la $a0, bin
+    syscall
+    move $a0, $t8
+    li $v0, 1
+    syscall
+    
+    
     # put item in best fitted bin
-    la $t9, bins_array # reload address
+    la $t5, bins_array # reload address
     mul $t8, $t8, 4
-    add $t9, $t9, $t8 # address of best-fit bin
+    add $t5, $t5, $t8 # address of best-fit bin
     sub.s $f3, $f1,$f0 # place item in bin
-    s.s $f3, 0($t9)
+    s.s $f3, 0($t5) # update bin capacity
     
     addi $t0, $t0, 4 # move to the next item
     sub $t2, $t2, 1 # remaining items
+    
+    li $v0, 4
+    la $a0, newLine
+    syscall
     j items_loop
 
   stop_items_loop: # all items are placed into bins
-  jal print_bins_array
+  #jal print_bins_array
   j loop
 
 ## Function to initialize bins to capacity of 1
 initialize_bins:
   la $t0, bins_array
-  lw $t1, bins_count
-  li $t2, 0 # starting index
+  la $t1, bins_count
+  lw $t5, 0($t1)
   l.s $f0, one_float
   
   # iterate through items to put in bins
   bins_init_loop:
-    bge $t2, $t1, stop_init
-    l.s $f12, 0($t0) # current item in f12
-    
-    mul $t3, $t2, 4
-    add $t4, $t0, $t3 # actual address
-
-    s.s $f0, 0($t4)
-
-    addi $t2, $t2, 1
-    
+    ble $t5, $zero, stop_init
+    s.s $f0, 0($t0)
+    addi $t0, $t0, 4
+    subi $t5, $t5, 1
     j bins_init_loop
     
   stop_init:
