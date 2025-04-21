@@ -19,7 +19,6 @@
   empty_msg: .asciiz "\nArray is empty!\n"
   item: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
-  min: .asciiz ", new minimum "
   newLine: .asciiz "\n"
   space:  .asciiz " "
   
@@ -353,22 +352,18 @@ best_fit:
       l.s $f2, 0($t5) # current bin in f2
       
       c.lt.s $f2, $f0
-      bc1t continue # item does not fit in bin
+      bc1t check_error # item does not fit in bin
       check_error:
-      
-      #sub.s $f4, $f0, $f2
-      #l.s $f5, error
-      #c.lt.s $f5, $f4, continue
+      sub.s $f4, $f0, $f2
+      l.s $f5, error
+      c.lt.s $f5, $f4
+      bc1t continue
       
       # items fits in bin
       c.le.s $f1, $f2
       bc1t skip
       mov.s $f1, $f2 # new min_capacity
       move $t4, $t8 # new min_index
-      
-      li $v0, 4
-      la $a0, min
-      syscall
       
       continue:
       skip:
@@ -449,7 +444,12 @@ print_bins_array:
 
         # Load the current element from the array into $f12 (for printing)
         l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
+        l.s $f11, zero_float
+        c.le.s $f11, $f12
+        bc1t print
+        mov.s $f12, $f11
 
+        print:
         # Print the floating-point number
         li $v0, 2              # syscall code for print float
         syscall
