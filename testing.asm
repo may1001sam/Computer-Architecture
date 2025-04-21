@@ -35,6 +35,7 @@
   zero_float: .float 0.0
   one_float: .float 1.0
   two_float: .float 2.0
+  error: .float 0.01
   # float conversion data
   ten: .float 10.0
   one: .float 1.0
@@ -338,9 +339,9 @@ best_fit:
     li $v0, 2
     syscall
     
-    la $t3, one_float
+    la $t3, two_float
     l.s $f1, 0($t3) # f1 is min_capacity
-    move $t4, $zero # t4 is min_index
+    li $t4, -1 # t4 is min_index
     move $t8, $zero # t8 is current index in bins array
     
     la $t5, bins_array
@@ -353,6 +354,12 @@ best_fit:
       
       c.lt.s $f2, $f0
       bc1t continue # item does not fit in bin
+      check_error:
+      
+      #sub.s $f4, $f0, $f2
+      #l.s $f5, error
+      #c.lt.s $f5, $f4, continue
+      
       # items fits in bin
       c.le.s $f1, $f2
       bc1t skip
