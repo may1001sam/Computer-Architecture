@@ -21,6 +21,8 @@
   empty_msg: .asciiz "\nArray is empty!\n"
   item: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
+  new_bin: .asciiz "\n new bin: "
+  float_buffer: .space 32
   newLine: .asciiz "\n"
   space:  .asciiz " "
   
@@ -44,8 +46,8 @@
   # arrays for storing items and bins
   items_array: .space 100
   items_free_index: .word 0
-  bins_array: .space 4
-  bins_count: .word 1
+  bins_array: .space 120
+  bins_count: .word 30
 
 ################################## CODE SECTION ###########################################
 .text
@@ -327,14 +329,8 @@ best_fit:
   la $a0, output_file
   li $a1, 1 # read mode
   syscall
-  move $s4, $v0 # file descriptor in s4
-  
-  li $v0, 15
-  move $a0, $s4
-  la $a1, bf_msg
-  li $a2, 55
-  syscall
-  
+  move $s0, $v0 # file descriptor in s4
+
   la $t0, items_array
   la $t1, items_free_index
   lw $t2, 0($t1) # t2 = number of items in array
@@ -353,6 +349,21 @@ best_fit:
     li $v0, 2
     syscall
     
+    li $v0, 15
+    move $a0, $s0
+    la $a1, item
+    li $a2, 6
+    syscall
+    move $a0, $t4
+    la $a1, float_buffer
+    jal int_to_string
+    li $v0, 15
+    move $a0, $s0
+    la $a1, float_buffer
+    li $a2, 4
+    syscall
+    
+    repeat:
     la $t3, two_float
     l.s $f1, 0($t3) # f1 is min_capacity
     li $t4, -1 # t4 is min_index
@@ -363,7 +374,7 @@ best_fit:
     lw $t7, 0($t6)
     # choose the best fit bin
     bins_loop:
-      ble $t7, $zero, stop_bins_loop
+      beqz $t7, stop_bins_loop
       l.s $f2, 0($t5) # current bin in f2
       
       c.lt.s $f2, $f0
@@ -389,24 +400,23 @@ best_fit:
     
     stop_bins_loop:
     bgt $t4, -1, available_bin
+    
     # no available bin
     create_new_bin:
     la $t5, bins_array # reload address
     la $t6, bins_count
     lw $t7, 0($t6) # reload number of bins
+    move $t4, $t7 # new bin is min index
     mul $t8, $t7, 4
     add $t5, $t5, $t8 # address of newly created bin
-    # initialize to capacity of 1
+    # put item in bin
     l.s $f4, one_float
-    s.s $f4, 0($t5) # new min_capacity
-    mov.s $f4, $f1
-    
-    move $t4, $t7 # make new bin the best fit for item
-    #sub.s $f3, $f4, $f0 # place item in bin
-    #s.s $f3, 0($t5) # update bin capacity
-    
+    #sub.s $f4, $f4, $f0
+    s.s $f4, 0($t5)
+
     addi $t7, $t7, 1 # increment bins count
     sw $t7, bins_count
+    j repeat
     
     available_bin:
     # put item in best fitted bin
@@ -416,7 +426,7 @@ best_fit:
     sub.s $f3, $f1, $f0 # place item in bin
     s.s $f3, 0($t5) # update bin capacity
     
-    
+    passed:
     addi $t0, $t0, 4 # move to the next item
     subi $t2, $t2, 1 # remaining items    
     
@@ -437,7 +447,7 @@ best_fit:
   stop_items_loop: # all items are placed into bins
   # close output file
   li $v0, 16
-  move $a0, $s4
+  move $a0, $s0
   syscall
   
   j loop
@@ -497,7 +507,30 @@ print_bins_array:
 
     done_printing_bins:
         jr $ra                 # Return from function
-  
+
+# Input: $a0 = integer, $a1 = buffer
+# Output: string in buffer
+int_to_string:
+    li $s1, 10
+    li $s2, 0          # index
+
+int_to_string_loop:
+    divu $a0, $s1
+    mfhi $s3          # remainder
+    mflo $a0           # quotient
+
+    addi $s3, $s3, 48  # convert digit to ASCII
+    sb $s3, 0($a1)
+    addi $a1, $a1, 1
+    addi $s2, $s2, 1
+
+    bnez $a0, int_to_string_loop
+
+    li $s4, 10         # newline
+    sb $s4, 0($a1)
+    
+    jr $ra
+    
 ## Function to notify user of empty arrays
 empty_array:
   li $v0, 4
