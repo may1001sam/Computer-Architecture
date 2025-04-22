@@ -9,6 +9,7 @@
   start_msg: .asciiz "----- Bin Packing Solver -----\n"
   menu: .asciiz "\n\nChoose an operation:\n 1. Enter file name to upload.\n 2. Choose Heuristic: FF or BF.\n 3. Enter q to quit the program.\n"
   prompt_fileName_msg: .asciiz "\nEnter file name:\n"
+  output_file: .asciiz "C:\\Users\\HP\\Documents\\GitHub\\ENCS4370-Computer-Architecture\\output.txt"
   invalid_option_msg: .asciiz "\nNo Such Option!\n"
   invalid_file_msg: .asciiz "\nInvalid file name!\n"
   invalid_input_msg: .asciiz "\nInvalid file input!\n"
@@ -16,6 +17,7 @@
   FForBF_msg: .asciiz "\nEnter 'FF' for First-Fit or 'BF' for Best Fit:\n"
   invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
   ff_msg: .asciiz "\nFF chosen\n"
+  bf_msg: .asciiz "< Best-Fit Algorithm for Bin Packing Solver >"
   empty_msg: .asciiz "\nArray is empty!\n"
   item: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
@@ -42,8 +44,8 @@
   # arrays for storing items and bins
   items_array: .space 100
   items_free_index: .word 0
-  bins_array: .space 100
-  bins_count: .word 25
+  bins_array: .space 4
+  bins_count: .word 1
 
 ################################## CODE SECTION ###########################################
 .text
@@ -320,6 +322,19 @@ best_fit:
   # initialize bins to capacity of 1
   jal initialize_bins
   
+  # open output file for writing of results
+  li $v0, 13
+  la $a0, output_file
+  li $a1, 1 # read mode
+  syscall
+  move $s4, $v0 # file descriptor in s4
+  
+  li $v0, 15
+  move $a0, $s4
+  la $a1, bf_msg
+  li $a2, 55
+  syscall
+  
   la $t0, items_array
   la $t1, items_free_index
   lw $t2, 0($t1) # t2 = number of items in array
@@ -373,6 +388,37 @@ best_fit:
       j bins_loop
     
     stop_bins_loop:
+    bgt $t4, -1, available_bin
+    # no available bin
+    create_new_bin:
+    la $t5, bins_array # reload address
+    la $t6, bins_count
+    lw $t7, 0($t6) # reload number of bins
+    mul $t8, $t7, 4
+    add $t5, $t5, $t8 # address of newly created bin
+    # initialize to capacity of 1
+    l.s $f4, one_float
+    s.s $f4, 0($t5) # new min_capacity
+    mov.s $f4, $f1
+    
+    move $t4, $t7 # make new bin the best fit for item
+    #sub.s $f3, $f4, $f0 # place item in bin
+    #s.s $f3, 0($t5) # update bin capacity
+    
+    addi $t7, $t7, 1 # increment bins count
+    sw $t7, bins_count
+    
+    available_bin:
+    # put item in best fitted bin
+    la $t5, bins_array # reload address
+    mul $t6, $t4, 4
+    add $t5, $t5, $t6 # address of best-fit bin
+    sub.s $f3, $f1, $f0 # place item in bin
+    s.s $f3, 0($t5) # update bin capacity
+    
+    
+    addi $t0, $t0, 4 # move to the next item
+    subi $t2, $t2, 1 # remaining items    
     
     li $v0, 4
     la $a0, bin
@@ -381,34 +427,19 @@ best_fit:
     li $v0, 1
     syscall
     
-    
-    # put item in best fitted bin
-    la $t5, bins_array # reload address
-    mul $t4, $t4, 4
-    add $t5, $t5, $t4 # address of best-fit bin
-    sub.s $f3, $f1, $f0 # place item in bin
-    s.s $f3, 0($t5) # update bin capacity
-    
-    addi $t0, $t0, 4 # move to the next item
-    subi $t2, $t2, 1 # remaining items
-    
-    
-    addi $sp, $sp, -4
-    sw $ra, 0($sp)
-
-    jal print_bins_array #print the item array
-  
-    lw $ra, 0($sp)
-    addi $sp, $sp, 4
-
+    jal print_bins_array
     li $v0, 4
     la $a0, newLine
     syscall
     
     j items_loop
-
+    
   stop_items_loop: # all items are placed into bins
-  #jal print_bins_array
+  # close output file
+  li $v0, 16
+  move $a0, $s4
+  syscall
+  
   j loop
 
 ## Function to initialize bins to capacity of 1
