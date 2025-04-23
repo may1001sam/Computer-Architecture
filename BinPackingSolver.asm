@@ -1,6 +1,6 @@
 # Title: Bin Packing Solver
 # Authors:
-#	Raghad Jamhour - 122
+#	Raghad Jamhour - 1220212
 #	Maysam Habbash - 1220075
 
 ################################## DATA SECTION ###########################################
@@ -17,14 +17,20 @@
   invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
   ff_msg: .asciiz "\nFF chosen\n"
   newLine: .asciiz "\n"
-  
+  item_str: .asciiz "Item "
+  bin_str:  .asciiz " -> Bin "
+  output_filename: .asciiz "C:\\Users\\SS\\ENCS4370-Computer-Architecture\\output.txt"
+  total_bins_str: .asciiz "Total Bins Used: "
+
   # variables to use
   fileName: .space 100
   algorithm: .space 3
   
   # buffer for reading lines in file
-  line_buffer: .space 100
+  line_buffer: .space 2000
   word_buffer: .space 50
+  output_buffer: .space 1000    # space for strings
+  output_index: .word 0         # keeps track of current position in buffer
   
   # float comparison data
   zero_float: .float 0.0
@@ -34,7 +40,7 @@
   one: .float 1.0
   
   # arrays for storing items and bins
-  items_array: .space 100
+  items_array: .space 500
   items_free_index: .word 0
   bins_array: .space 100
   bins_free_index: .word 0
@@ -48,7 +54,8 @@ main:
   li $v0, 4
   la $a0, start_msg
   syscall
-  
+    
+
   loop:
   
     addi $sp, $sp, -4
@@ -118,7 +125,7 @@ fileReader_loop:
   li $v0, 14
   move $a0, $s0
   la $a1, line_buffer
-  li $a2, 100
+  li $a2, 2000
   syscall
 
   blez $v0, close_file
@@ -254,7 +261,7 @@ add_item_to_array:
   
   jr $ra
   
-  
+
 # Function to print an array of floating-point numbers
 print_float_array:
     # Load the base address of the array (starting address of the array)
@@ -283,6 +290,35 @@ print_float_array:
     done_printing:
         jr $ra                 # Return from function
   
+  
+# Function to print an array of floating-point numbers
+print_bins_array:
+    # Load the base address of the array (starting address of the array)
+    la $t5, bins_array       # $t0 = base address of the array
+    la $t6, bins_free_index  # $t1 = address of the index tracker
+    lw $t7, 0($t6)            # $t2 = number of elements in the array
+
+    # Loop to print each element in the array
+    loop_print_bins:
+        # Check if we have printed all elements
+        beq $t7, $zero, done_printing_bins
+
+        # Load the current element from the array into $f12 (for printing)
+        l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
+
+        # Print the floating-point number
+        li $v0, 2              # syscall code for print float
+        syscall
+
+        # Move to the next element in the array (increment by 4 bytes for single precision float)
+        addi $t5, $t5, 4       # Increment address of the next float in the array
+        sub $t7, $t7, 1        # Decrement the counter of remaining elements
+
+        j loop_print_bins           # Continue the loop
+
+    done_printing_bins:
+        jr $ra                 # Return from function
+    
 
 ## Function to specify First-Fit or Best-Fit algorithm
 FForBF:
@@ -309,13 +345,210 @@ FForBF:
 
 ## Function to run First-Fit algorithm
 first_fit:
-  #### Queen Raghad <3
-	# ...
-  li $v0, 4
-  la $a0, ff_msg # debugging
-  syscall
-  
-  j loop
+
+    li $v0, 13               # sys_open 
+    la $a0, output_filename  # Address of file name (e.g., "output.txt")
+    li $a1, 1               
+    syscall
+    move $s1, $v0            # Store file descriptor in $s1
+
+    la $t4, bins_array           # $t4 = address of bins_array
+
+    # Load the floating-point value 1.0 into $f12 
+    la $t5, one_float           
+    l.s $f12, 0($t5)             
+
+    # Counter to fill the bins 
+    li $t6, 25                    
+
+fill_bins1:
+    beq $t6, $zero, filling_done    
+    s.s $f12, 0($t4)             
+    addi $t4, $t4, 4             
+    sub $t6, $t6, 1              
+    j fill_bins1            
+
+filling_done:
+    li $t7, 25
+    la $t1, bins_free_index
+    sw $t7, 0($t1)
+
+    # Load base addresses
+    la $t7, zero_float       
+    l.s $f4, 0($t7)    # f4 = 0       
+    la $t5, items_array       
+    la $t6, items_free_index  
+    la $t4, bins_array        
+    la $t3, bins_free_index   
+    lw $t7, 0($t6)            
+    li $s0, 1  
+    move $t9, $zero                         
+# Debug: print number of items before loop
+li $v0, 1
+move $a0, $t7
+syscall
+
+loop_fill:
+    beq $t7, $zero, done # The array items is empty      
+    l.s $f12, 0($t5)     # f12 contains the item value       
+    la $t4, bins_array      
+    lw $t2, 0($t3)            
+    move $t8, $t2        # Number of bins         
+
+inner_bin:
+    beq $t8, $zero, create_new_bin    # No bins left
+    l.s $f11, 0($t4)          
+    sub.s $f0, $f11, $f12    # Bin value - item value  
+    c.le.s $f4, $f0          # f4 <= f0
+    bc1t place_in_bin         
+
+    addi $t4, $t4, 4          
+    sub $t8, $t8, 1       
+    j inner_bin
+
+place_in_bin:
+    s.s $f0, 0($t4)          
+    addi $t9, $t9, 1         
+       
+    # Write the string "Item" to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, item_str         # Load address of "Item" string
+    li $a2, 5                # Length of the string "Item"
+    syscall
+
+    move $a0, $s0
+
+    jal write_int_to_file 
+
+    # Write the "->" string to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, bin_str         # Load address of "Item" string
+    li $a2, 8                # Length of the string "Item"
+    syscall
+
+
+    la $t1, bins_array
+    sub $t2, $t4, $t1
+    srl $t2, $t2, 2      # $t4 - t1 / 4 to get the index
+
+    #li $v0, 1
+    move $a0, $t2
+    #syscall
+    jal write_int_to_file     # Result goes to output_buffer
+
+
+    # Write newline to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, newLine         # Load address of "Item" string
+    li $a2, 1                # Length of the string "Item"
+    syscall    
+    
+
+    j next_item
+
+create_new_bin:
+    la $t1, one_float
+    l.s $f11, 0($t1)
+    sub.s $f0, $f11, $f12
+    la $t4, bins_array      
+    s.s $f0, 0($t4)
+    addi $t9, $t9, 1         
+
+    # Write the string "Item" to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, item_str         # Load address of "Item" string
+    li $a2, 5                # Length of the string "Item"
+    syscall
+
+    move $a0, $s0
+    jal write_int_to_file 
+
+    # Write the "->" string to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, bin_str         # Load address of "Item" string
+    li $a2, 8                # Length of the string "Item"
+    syscall
+    
+    move $a0, $t2    
+    jal write_int_to_file     # Result goes to output_buffer
+
+   # Write newline to the file
+    li $v0, 15   	            # sys_write
+    move $a0, $s1            # File descriptor
+    la $a1, newLine         # Load address of "Item" string
+    li $a2, 1                # Length of the string "Item"
+    syscall   
+
+    la $t3, bins_free_index   
+    lw $t2, 0($t3)
+    addi $t2, $t2, 1
+    sw $t2, 0($t3)    # Store it in the free bins index array 
+    j next_item
+
+next_item:
+    addi $s0, $s0, 1         # Increment item number
+    addi $t5, $t5, 4         # Item index
+    sub $t7, $t7, 1          # Decrement number of items
+    j loop_fill
+
+done:
+
+    # Write "Total Bins Used: " to file
+    li $v0, 15
+    move $a0, $s1
+    la $a1, total_bins_str    # Label must contain "Total Bins Used: "
+    li $a2, 18                # Length of the string
+    syscall
+
+    move $a0, $t9    # Move value in $t9 to $a0
+    jal write_int_to_file
+
+    # Write newline to file
+    li $v0, 15
+    move $a0, $s1
+    la $a1, newLine
+    li $a2, 1
+    syscall
+
+    li $v0, 16        # Syscall number for closing the file
+    move $a0, $s1     # File descriptor in $s1
+    syscall           # Close the file
+
+    j loop            # Return to main
+
+write_int_to_file:
+    
+    li $s6, 10
+    divu $a0, $s6
+    mflo $s2      # tens
+    mfhi $s3      # ones
+
+    la $s4, output_buffer   # Start of buffer
+    move $s5, $s4           # Pointer for writing
+
+    beqz $s2, skip_tens_char
+    addi $s2, $s2, 48       # Convert tens to ASCII
+    sb $s2, 0($s5)
+    addi $s5, $s5, 1
+
+skip_tens_char:
+    addi $s3, $s3, 48       # Convert ones to ASCII
+    sb $s3, 0($s5)
+    addi $s5, $s5, 1
+    
+    subu $a2, $s5, $s4      # Length = end - start
+    move $a0, $s1           
+    move $a1, $s4           
+    li $v0, 15              
+    syscall
+
+    jr $ra
+
 
 ## Function to run Best-Fit algorithm
 best_fit:
