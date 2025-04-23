@@ -19,9 +19,9 @@
   ff_msg: .asciiz "\nFF chosen\n"
   bf_msg: .asciiz "< Best-Fit Algorithm for Bin Packing Solver >"
   empty_msg: .asciiz "\nArray is empty!\n"
-  item: .asciiz "\nitem: "
+  item_str: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
-  bins_used_msg: .asciiz "\nbins used: "
+  bins_used_msg: .asciiz "\n\nbins used: "
   float_buffer: .space 32
   newLine: .asciiz "\n"
   space:  .asciiz " "
@@ -30,9 +30,11 @@
   fileName: .space 100
   algorithm: .space 3
   
-  # buffer for reading lines in file
+  # buffer for reading and writing to file
   line_buffer: .space 100
   word_buffer: .space 50
+  output_buffer: .space 1000
+  output_index: .word 0
   
   # float comparison data
   zero_float: .float 0.0
@@ -329,11 +331,12 @@ best_fit:
   la $a0, output_file
   li $a1, 1 # read mode
   syscall
-  move $s0, $v0 # file descriptor in s4
+  move $s1, $v0 # file descriptor in s4
 
   la $t0, items_array
   la $t1, items_free_index
   lw $t2, 0($t1) # t2 = number of items in array
+  move $t9, $zero # t9 is item index
 
   beq $t2, $zero, empty_array # make sure array is not empty
   
@@ -343,27 +346,22 @@ best_fit:
     l.s $f0, 0($t0) # current item in f0
     
     li $v0, 4
-    la $a0, item
+    la $a0, item_str
     syscall
     mov.s $f12, $f0
     li $v0, 2
     syscall
     
+    # write to file
     li $v0, 15
-    move $a0, $s0
-    la $a1, item
-    li $a2, 6
+    move $a0, $s1
+    la $a1, item_str
+    li $a2, 7
     syscall
-    move $a0, $t4
-    la $a1, float_buffer
-    jal int_to_string
-    li $v0, 15
-    move $a0, $s0
-    la $a1, float_buffer
-    li $a2, 4
-    syscall
+    move $a0, $t9
+    jal write_int_to_file
     
-    repeat:
+    
     la $t3, two_float
     l.s $f1, 0($t3) # f1 is min_capacity
     li $t4, -1 # t4 is min_index
@@ -435,6 +433,15 @@ best_fit:
     li $v0, 1
     syscall
     
+    # write to file
+    li $v0, 15
+    move $a0, $s1
+    la $a1, bin
+    li $a2, 7
+    syscall
+    move $a0, $t4
+    jal write_int_to_file 
+    
     jal print_bins_array
     li $v0, 4
     la $a0, newLine
@@ -442,24 +449,63 @@ best_fit:
     
     addi $t0, $t0, 4 # move to the next item
     subi $t2, $t2, 1 # remaining items
+    addi $t9, $t9, 1 # increment index tracker
     j items_loop
     
   stop_items_loop: # all items are placed into bins
-  # close output file
-  li $v0, 16
-  move $a0, $s0
-  syscall
   
   li $v0, 4
   la $a0, bins_used_msg
   syscall
   la $a0, bins_count
   li $v0, 1
-  lw $t0, 0($a0)
-  move $a0, $t0
+  lw $s7, 0($a0)
+  move $a0, $s7
+  syscall
+  
+  # write to file
+  li $v0, 15
+  move $a0, $s1
+  la $a1, bins_used_msg
+  li $a2, 14
+  syscall
+  move $a0, $s7
+  jal write_int_to_file 
+  
+  # close output file
+  li $v0, 16
+  move $a0, $s7
   syscall
   
   j loop
+  
+write_int_to_file:
+    
+    li $s6, 10
+    divu $a0, $s6
+    mflo $s2      # tens
+    mfhi $s3      # ones
+
+    la $s4, output_buffer   # Start of buffer
+    move $s5, $s4           # Pointer for writing
+
+    beqz $s2, skip_tens_char
+    addi $s2, $s2, 48       # Convert tens to ASCII
+    sb $s2, 0($s5)
+    addi $s5, $s5, 1
+    
+    skip_tens_char:
+    addi $s3, $s3, 48       # Convert ones to ASCII
+    sb $s3, 0($s5)
+    addi $s5, $s5, 1
+    
+    subu $a2, $s5, $s4      # Length = end - start
+    move $a0, $s1           
+    move $a1, $s4           
+    li $v0, 15              
+    syscall
+
+    jr $ra
 
 ## Function to initialize bins to capacity of 1
 initialize_bins:

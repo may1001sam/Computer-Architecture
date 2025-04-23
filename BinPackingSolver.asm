@@ -418,7 +418,6 @@ place_in_bin:
     syscall
 
     move $a0, $s0
-
     jal write_int_to_file 
 
     # Write the "->" string to the file
