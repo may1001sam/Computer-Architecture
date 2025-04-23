@@ -21,7 +21,7 @@
   empty_msg: .asciiz "\nArray is empty!\n"
   item: .asciiz "\nitem: "
   bin: .asciiz ", bin: "
-  new_bin: .asciiz "\n new bin: "
+  bins_used_msg: .asciiz "\nbins used: "
   float_buffer: .space 32
   newLine: .asciiz "\n"
   space:  .asciiz " "
@@ -46,8 +46,8 @@
   # arrays for storing items and bins
   items_array: .space 100
   items_free_index: .word 0
-  bins_array: .space 120
-  bins_count: .word 30
+  bins_array: .space 100
+  bins_count: .word 1
 
 ################################## CODE SECTION ###########################################
 .text
@@ -411,12 +411,12 @@ best_fit:
     add $t5, $t5, $t8 # address of newly created bin
     # put item in bin
     l.s $f4, one_float
-    #sub.s $f4, $f4, $f0
-    s.s $f4, 0($t5)
+    sub.s $f3, $f4, $f0
+    s.s $f3, 0($t5)
 
     addi $t7, $t7, 1 # increment bins count
     sw $t7, bins_count
-    j repeat
+    j passed
     
     available_bin:
     # put item in best fitted bin
@@ -426,9 +426,7 @@ best_fit:
     sub.s $f3, $f1, $f0 # place item in bin
     s.s $f3, 0($t5) # update bin capacity
     
-    passed:
-    addi $t0, $t0, 4 # move to the next item
-    subi $t2, $t2, 1 # remaining items    
+    passed:  
     
     li $v0, 4
     la $a0, bin
@@ -442,12 +440,23 @@ best_fit:
     la $a0, newLine
     syscall
     
+    addi $t0, $t0, 4 # move to the next item
+    subi $t2, $t2, 1 # remaining items
     j items_loop
     
   stop_items_loop: # all items are placed into bins
   # close output file
   li $v0, 16
   move $a0, $s0
+  syscall
+  
+  li $v0, 4
+  la $a0, bins_used_msg
+  syscall
+  la $a0, bins_count
+  li $v0, 1
+  lw $t0, 0($a0)
+  move $a0, $t0
   syscall
   
   j loop
