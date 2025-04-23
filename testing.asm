@@ -1,6 +1,6 @@
 # Title: Bin Packing Solver
 # Authors:
-#	Raghad Jamhour - 122
+#	Raghad Jamhour - 1220212
 #	Maysam Habbash - 1220075
 
 ################################## DATA SECTION ###########################################
@@ -16,13 +16,12 @@
   success_fileOpen_msg: .asciiz "File opened successfully.\n"
   FForBF_msg: .asciiz "\nEnter 'FF' for First-Fit or 'BF' for Best Fit:\n"
   invalid_algo_msg: .asciiz "\nInvalid Algorithm!\n"
-  ff_msg: .asciiz "\nFF chosen\n"
-  bf_msg: .asciiz "< Best-Fit Algorithm for Bin Packing Solver >"
+  ff_msg: .asciiz "First-Fit Algorithm:"
+  bf_msg: .asciiz "Best-Fit Algorithm:"
   empty_msg: .asciiz "\nArray is empty!\n"
-  item_str: .asciiz "\nitem: "
-  bin: .asciiz ", bin: "
-  bins_used_msg: .asciiz "\n\nbins used: "
-  float_buffer: .space 32
+  item_str: .asciiz "\nItem "
+  bin_str:  .asciiz " -> Bin "
+  total_bins_str: .asciiz "\n\nTotal Bins Used: "
   newLine: .asciiz "\n"
   space:  .asciiz " "
   
@@ -31,7 +30,7 @@
   algorithm: .space 3
   
   # buffer for reading and writing to file
-  line_buffer: .space 100
+  line_buffer: .space 2000
   word_buffer: .space 50
   output_buffer: .space 1000
   output_index: .word 0
@@ -46,10 +45,11 @@
   one: .float 1.0
   
   # arrays for storing items and bins
-  items_array: .space 100
+  items_array: .space 500
   items_free_index: .word 0
   bins_array: .space 100
   bins_count: .word 1
+  bins_free_index: .word 0
 
 ################################## CODE SECTION ###########################################
 .text
@@ -117,52 +117,49 @@ read_file:
   la $a0, success_fileOpen_msg
   syscall
 
-fileReader_loop:
-  li $v0, 14
-  move $a0, $s0
-  la $a1, line_buffer
-  li $a2, 100
-  syscall
+  fileReader_loop:
+    li $v0, 14
+    move $a0, $s0
+    la $a1, line_buffer
+    li $a2, 100
+    syscall
 
-  blez $v0, close_file
+    blez $v0, close_file
 
-  la $t0, line_buffer
-  j parse_words
+    la $t0, line_buffer
+    j parse_words
 
-parse_words:
+  parse_words:
+    lb $t1, 0($t0)
+    beqz $t1, fileReader_loop
 
-  lb $t1, 0($t0)
-  beqz $t1, fileReader_loop
+  skip_spaces:
+    lb $t1, 0($t0)
+    beqz $t1, fileReader_loop
+    li $t2, 32
+    bne $t1, $t2, word_start
+    addi $t0, $t0, 1
+    j skip_spaces
 
-skip_spaces:
-  lb $t1, 0($t0)
-  beqz $t1, fileReader_loop
-  li $t2, 32
-  bne $t1, $t2, word_start
-  addi $t0, $t0, 1
-  j skip_spaces
+  word_start:
+    la $a1, word_buffer
+    move $t3, $a1
 
-word_start:
-  la $a1, word_buffer
-  move $t3, $a1
+  copy_word:
+    lb $t1, 0($t0)
+    beqz $t1, finish_word
+    li $t2, 32
+    beq $t1, $t2, finish_word
+    sb $t1, 0($t3)
+    addi $t0, $t0, 1
+    addi $t3, $t3, 1
+    j copy_word
 
-copy_word:
-  lb $t1, 0($t0)
-  beqz $t1, finish_word
-  li $t2, 32
-  beq $t1, $t2, finish_word
-  sb $t1, 0($t3)
-  addi $t0, $t0, 1
-  addi $t3, $t3, 1
-  j copy_word
-
-finish_word:
-
+  finish_word:
   sb $zero, 0($t3)
   move $a0, $a1
   jal string_to_float
   j parse_words
-
 
 string_to_float:
   li $t1, 0
@@ -190,18 +187,18 @@ loopValid:
   add.s $f2, $f2, $f6
   j next_char
 
-before_dot:
-  mul $t1, $t1, 10
-  add $t1, $t1, $t6
+  before_dot:
+    mul $t1, $t1, 10
+    add $t1, $t1, $t6
 
-next_char:
-  addi $a0, $a0, 1
-  j loopValid
+  next_char:
+    addi $a0, $a0, 1
+    j loopValid
 
-set_decimal:
-  li $t2, 1
-  addi $a0, $a0, 1
-  j loopValid
+  set_decimal:
+    li $t2, 1
+    addi $a0, $a0, 1
+    j loopValid
 
 finish:
   mtc1 $t1, $f1
@@ -219,10 +216,7 @@ finish:
   c.le.s $f1, $f12
   bc1t invalid_input
   
- # li $v0 , 2
- # syscall
-  
-  # Save return address before calling
+  # Save return address before call
   addi $sp, $sp, -4
   sw $ra, 0($sp)
   # item is valid
@@ -241,9 +235,9 @@ add_item_to_array:
   # get address of next available cell in array (index)
   la $t8, items_array
   la $t4, items_free_index
-  lw $t9, 0($t4)	# t4 is now address of free index
+  lw $t9, 0($t4)	# t4 is address of free index
   
-  mul $t9, $t9, 4 #move forward 4 bytes for single precision floats
+  mul $t9, $t9, 4
   add $t8, $t8, $t9 # actual address
   s.s $f12, 0($t8)
   
@@ -252,44 +246,8 @@ add_item_to_array:
   addi $t9, $t9, 1 # increment
   sw $t9, 0($t4)
   
-  # li $v0, 2          # syscall code for print float
-  #syscall
-  
   jr $ra
   
-# Function to print an array of floating-point numbers
-print_float_array:
-    # Load the base address of the array (starting address of the array)
-    la $t5, items_array       # $t0 = base address of the array
-    la $t6, items_free_index  # $t1 = address of the index tracker
-    lw $t7, 0($t6)            # $t2 = number of elements in the array
-
-    # Loop to print each element in the array
-    loop_print:
-        # Check if we have printed all elements
-        beq $t7, $zero, done_printing
-
-        # Load the current element from the array into $f12 (for printing)
-        l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
-
-        # Print the floating-point number
-        li $v0, 2              # syscall code for print float
-        syscall
-
-        # Move to the next element in the array (increment by 4 bytes for single precision float)
-        addi $t5, $t5, 4       # Increment address of the next float in the array
-        sub $t7, $t7, 1        # Decrement the counter of remaining elements
-        
-        li $v0, 4
-        la $a0, space
-        syscall
-        
-        j loop_print           # Continue the loop
-
-    done_printing:
-        jr $ra                 # Return from function
-  
-
 ## Function to specify First-Fit or Best-Fit algorithm
 FForBF:
   li $v0, 4
@@ -319,8 +277,6 @@ first_fit:
 	# ...
   j loop
 
-############################################################################################################
-############################################################################################################
 ## Function to run Best-Fit algorithm
 best_fit:
   # initialize bins to capacity of 1
@@ -332,6 +288,12 @@ best_fit:
   li $a1, 1 # read mode
   syscall
   move $s1, $v0 # file descriptor in s4
+  # write to file
+  li $v0, 15
+  move $a0, $s1
+  la $a1, bf_msg
+  li $a2, 21
+  syscall
 
   la $t0, items_array
   la $t1, items_free_index
@@ -360,7 +322,6 @@ best_fit:
     syscall
     move $a0, $t9
     jal write_int_to_file
-    
     
     la $t3, two_float
     l.s $f1, 0($t3) # f1 is min_capacity
@@ -424,10 +385,9 @@ best_fit:
     sub.s $f3, $f1, $f0 # place item in bin
     s.s $f3, 0($t5) # update bin capacity
     
-    passed:  
-    
+    passed:
     li $v0, 4
-    la $a0, bin
+    la $a0, bin_str
     syscall
     move $a0, $t4
     li $v0, 1
@@ -436,8 +396,8 @@ best_fit:
     # write to file
     li $v0, 15
     move $a0, $s1
-    la $a1, bin
-    li $a2, 7
+    la $a1, bin_str
+    li $a2, 8
     syscall
     move $a0, $t4
     jal write_int_to_file 
@@ -455,7 +415,7 @@ best_fit:
   stop_items_loop: # all items are placed into bins
   
   li $v0, 4
-  la $a0, bins_used_msg
+  la $a0, total_bins_str
   syscall
   la $a0, bins_count
   li $v0, 1
@@ -466,8 +426,8 @@ best_fit:
   # write to file
   li $v0, 15
   move $a0, $s1
-  la $a1, bins_used_msg
-  li $a2, 14
+  la $a1, total_bins_str
+  li $a2, 19
   syscall
   move $a0, $s7
   jal write_int_to_file 
@@ -479,27 +439,27 @@ best_fit:
   
   j loop
   
+## Function to write integers into file
 write_int_to_file:
-    
     li $s6, 10
     divu $a0, $s6
-    mflo $s2      # tens
-    mfhi $s3      # ones
+    mflo $s2 # tens
+    mfhi $s3 # ones
 
-    la $s4, output_buffer   # Start of buffer
-    move $s5, $s4           # Pointer for writing
+    la $s4, output_buffer
+    move $s5, $s4 # pointer for writing
 
     beqz $s2, skip_tens_char
-    addi $s2, $s2, 48       # Convert tens to ASCII
+    addi $s2, $s2, 48 # convert tens to ASCII
     sb $s2, 0($s5)
     addi $s5, $s5, 1
     
     skip_tens_char:
-    addi $s3, $s3, 48       # Convert ones to ASCII
+    addi $s3, $s3, 48 # convert ones to ASCII
     sb $s3, 0($s5)
     addi $s5, $s5, 1
     
-    subu $a2, $s5, $s4      # Length = end - start
+    subu $a2, $s5, $s4 # length
     move $a0, $s1           
     move $a1, $s4           
     li $v0, 15              
@@ -524,68 +484,45 @@ initialize_bins:
   stop_init:
   jr $ra
 
+## Function to print bins in the array
 print_bins_array:
-	li $v0, 4
-        la $a0, newLine
-        syscall
-    # Load the base address of the array (starting address of the array)
-    la $t5, bins_array       # $t0 = base address of the array
-    la $t6, bins_count  # $t1 = address of the index tracker
-    lw $t7, 0($t6)            # $t2 = number of elements in the array
+  li $v0, 4
+  la $a0, newLine
+  syscall
+  
+  la $t5, bins_array
+  la $t6, bins_count
+  lw $t7, 0($t6) # t7 is number of bins in the array
 
-    # Loop to print each element in the array
-    loop_print_bins:
-        # Check if we have printed all elements
-        beq $t7, $zero, done_printing_bins
+  # loop to print each element in the array
+  print_bins_loop:
+    # Check if we have printed all elements
+    beq $t7, $zero, done_printing_bins
 
-        # Load the current element from the array into $f12 (for printing)
-        l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
-        l.s $f11, zero_float
-        c.le.s $f11, $f12
-        bc1t print
-        mov.s $f12, $f11
+    # Load the current element from the array into $f12 (for printing)
+    l.s $f12, 0($t5)       # Load the floating-point number at $t0 into $f12
+    l.s $f11, zero_float
+    c.le.s $f11, $f12
+    bc1t print
+    mov.s $f12, $f11
 
-        print:
-        # Print the floating-point number
-        li $v0, 2              # syscall code for print float
-        syscall
+    print:
+      li $v0, 2
+      syscall
 
-        li $v0, 4
-        la $a0, space
-        syscall
+      li $v0, 4
+      la $a0, space
+      syscall
         
-        # Move to the next element in the array (increment by 4 bytes for single precision float)
-        addi $t5, $t5, 4       # Increment address of the next float in the array
-        sub $t7, $t7, 1        # Decrement the counter of remaining elements
+    # move to next bin
+    addi $t5, $t5, 4
+    sub $t7, $t7, 1
 
-        j loop_print_bins          # Continue the loop
+    j print_bins_loop
 
     done_printing_bins:
-        jr $ra                 # Return from function
-
-# Input: $a0 = integer, $a1 = buffer
-# Output: string in buffer
-int_to_string:
-    li $s1, 10
-    li $s2, 0          # index
-
-int_to_string_loop:
-    divu $a0, $s1
-    mfhi $s3          # remainder
-    mflo $a0           # quotient
-
-    addi $s3, $s3, 48  # convert digit to ASCII
-    sb $s3, 0($a1)
-    addi $a1, $a1, 1
-    addi $s2, $s2, 1
-
-    bnez $a0, int_to_string_loop
-
-    li $s4, 10         # newline
-    sb $s4, 0($a1)
-    
     jr $ra
-    
+
 ## Function to notify user of empty arrays
 empty_array:
   li $v0, 4
