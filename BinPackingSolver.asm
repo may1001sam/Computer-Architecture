@@ -125,7 +125,7 @@ fileReader_loop:
   li $v0, 14
   move $a0, $s0
   la $a1, line_buffer
-  li $a2, 2000
+  li $a2, 500
   syscall
 
   blez $v0, close_file
@@ -356,7 +356,8 @@ first_fit:
 
     # Load the floating-point value 1.0 into $f12 
     la $t5, one_float           
-    l.s $f12, 0($t5)             
+    l.s $f12, 0($t5)
+    l.s $f2, 0($t5)              
 
     # Counter to fill the bins 
     li $t6, 25                    
@@ -399,6 +400,12 @@ inner_bin:
     beq $t8, $zero, create_new_bin    # No bins left
     l.s $f11, 0($t4)          
     sub.s $f0, $f11, $f12    # Bin value - item value  
+    c.eq.s $f11, $f2
+    bc1t inc
+    j dont_inc
+    inc: 
+    addi $t9, $t9, 1 
+    dont_inc:
     c.le.s $f4, $f0          # f4 <= f0
     bc1t place_in_bin         
 
@@ -407,8 +414,7 @@ inner_bin:
     j inner_bin
 
 place_in_bin:
-    s.s $f0, 0($t4)          
-    addi $t9, $t9, 1         
+    s.s $f0, 0($t4)                  
        
     # Write the string "Item" to the file
     li $v0, 15   	            # sys_write
